@@ -1,6 +1,7 @@
 using MarketBackend.Data;
 using MarketBackend.DTOs;
-using MarketBackend.Services;
+using MarketBackend.Services.Auth;
+using MarketBackend.Services.Implementations.Auth;
 using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddScoped<IAuthService, AuthService>();

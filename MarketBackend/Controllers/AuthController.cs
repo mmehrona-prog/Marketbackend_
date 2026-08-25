@@ -6,11 +6,11 @@ using MarketBackend.DTOs;
 using MarketBackend.DTOs.Request;
 using MarketBackend.DTOs.Response;
 using MarketBackend.Models;
-using MarketBackend.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
+using MarketBackend.Services.Auth;
 
 namespace MarketBackend.Controllers
 {
@@ -42,7 +42,7 @@ namespace MarketBackend.Controllers
                 {
                     Email = request.Email,
                     PasswordHash = authService.HashPassword(request.Password),
-                    Role = "user"
+                    Role = request.Role.ToLower().Trim()
                 };
 
                 context.Users.Add(newUser);

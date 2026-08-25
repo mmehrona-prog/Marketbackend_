@@ -7,7 +7,7 @@ using MarketBackend.DTOs;
 using MarketBackend.DTOs.Request;
 using MarketBackend.DTOs.Response;
 using MarketBackend.Models;
-using MarketBackend.Services;
+using MarketBackend.Services.Auth;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -18,7 +18,7 @@ namespace MarketBackend.Controllers
 {
     [Route("api/products")]
     [ApiController]
-    public class ProductsController(ApplicationDbContext context, APIResponse APIResponse) : ControllerBase
+    public class ProductsController(IProductService productService, APIResponse APIResponse) : ControllerBase
     {
         //просмотр всех продуктов с фильтрации по имени и цене
         [HttpGet]
@@ -30,25 +30,12 @@ namespace MarketBackend.Controllers
         {
             try
             {
-                var products = await context.Products.AsQueryable()
-                    .WhereIf(!string.IsNullOrEmpty(name), p => p.Name.ToLower().Contains(name!.ToLower()))
-                    .WhereIf(minPrice.HasValue, p => p.Price >= minPrice.Value)
-                    .WhereIf(maxPrice.HasValue, p => p.Price <= maxPrice.Value)
-                    .ToListAsync();
-                // Преобразуем список продуктов в список DTO для ответа
-                var result = products.Select(p => new ProductViewDto
-                {
-                    Id = p.Id,
-                    Name = p.Name,
-                    Description = p.Description,
-                    Price = (decimal)(p.Price),
-                    ImageUrl = p.ImageUrl
-                }).ToList();
+                var result = await productService.GetAllAsync(name, minPrice, maxPrice);
 
                 APIResponse.Status = true;
                 APIResponse.StatusCode = HttpStatusCode.OK;
                 APIResponse.Data = result;
-                APIResponse.Error = null;
+                APIResponse.Error = string.Empty;
 
                 return Ok(APIResponse);
             }
@@ -69,17 +56,7 @@ namespace MarketBackend.Controllers
         {
             try
             {
-                var newproduct = new Product
-                {
-                    Name = request.Name,
-                    Description = request.Description,
-                    Price = request.Price,
-                    ImageUrl = request.ImageUrl,
-                    CreatedAt = DateTime.Now,
-                };
-                context.Products.Add(newproduct);
-                await context.SaveChangesAsync();
-
+                await productService.CreateAsync(request);
 
                 APIResponse.Status = true;
                 APIResponse.StatusCode = HttpStatusCode.Created;
@@ -104,28 +81,22 @@ namespace MarketBackend.Controllers
         {
             try
             {
-                var product = await context.Products.FindAsync(id);
-                if (product == null)
+                bool isFound = await productService.UpdateAsync(id, request);
+                if (isFound)
                 {
                     APIResponse.Status = false;
                     APIResponse.StatusCode = HttpStatusCode.NotFound;
                     APIResponse.Data = null;
-                    APIResponse.Error = "Product not found.";
-                    return NotFound(APIResponse);
-                }
-                // Обновляем свойства продукта
-                product.Name = request.Name;
-                product.Description = request.Description;
-                product.Price = request.Price;
-                product.ImageUrl = request.ImageUrl;
+                    APIResponse.Error = "Product not found";
+                    return NotFound( APIResponse);
+                } 
 
-                await context.SaveChangesAsync();
-
-                APIResponse.Status = true;
-                APIResponse.StatusCode = HttpStatusCode.OK;
-                APIResponse.Data = "Product updated successfully.";
-                APIResponse.Error = null;
-                return Ok(APIResponse);
+                    APIResponse.Status = true;
+                    APIResponse.StatusCode = HttpStatusCode.OK;
+                    APIResponse.Data = "Product updated successfully.";
+                    APIResponse.Error = string.Empty;
+                    return Ok(APIResponse);
+                
             }
             catch (Exception ex)
             {
@@ -143,8 +114,8 @@ namespace MarketBackend.Controllers
         {
             try
             {
-                var product = await context.Products.FindAsync(id);
-                if (product == null)
+               bool isFound = await productService.DeleteAsync(id);
+                if(isFound)
                 {
                     APIResponse.Status = false;
                     APIResponse.StatusCode = HttpStatusCode.NotFound;
@@ -153,13 +124,10 @@ namespace MarketBackend.Controllers
                     return NotFound(APIResponse);
                 }
 
-                context.Products.Remove(product);
-                await context.SaveChangesAsync();
-
                 APIResponse.Status = true;
                 APIResponse.StatusCode = HttpStatusCode.OK;
                 APIResponse.Data = "Product deleted successfully.";
-                APIResponse.Error = null;
+                APIResponse.Error = string.Empty;
 
                 return Ok(APIResponse);
             }
