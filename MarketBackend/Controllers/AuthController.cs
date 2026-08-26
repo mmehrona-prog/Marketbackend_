@@ -17,7 +17,6 @@ namespace MarketBackend.Controllers
     [ApiController]
     [Route("api/auth")]
     public class AuthController(IAuthService authService,
-            ApplicationDbContext context,
             APIResponse APIResponse) : ControllerBase
     {
         //регистрация
@@ -28,8 +27,9 @@ namespace MarketBackend.Controllers
             try
             {
                 // Проверка, существует ли пользователь с таким email
-                var user = await context.Users.AnyAsync(u => u.Email == request.Email);
-                if (user)
+                bool isRegistered = await authService.RegisterAsync(request);
+
+                if (!isRegistered)
                 {
                     APIResponse.Status = false;
                     APIResponse.StatusCode = HttpStatusCode.BadRequest;
@@ -38,27 +38,18 @@ namespace MarketBackend.Controllers
                     return BadRequest(APIResponse);
                 }
 
-                var newUser = new User
-                {
-                    Email = request.Email,
-                    PasswordHash = authService.HashPassword(request.Password),
-                    Role = request.Role.ToLower().Trim()
-                };
-
-                context.Users.Add(newUser);
-                await context.SaveChangesAsync();
-
                 APIResponse.Status = true;
                 APIResponse.StatusCode = HttpStatusCode.OK;
                 APIResponse.Data = "User registered successfully.";
-                APIResponse.Error = null;
+                APIResponse.Error = string.Empty;
 
                 return Ok(APIResponse);
             }
             catch (Exception ex) {
                 APIResponse.Status = false;
                 APIResponse.StatusCode = HttpStatusCode.InternalServerError;
-                APIResponse.Error = ex.Data;
+                APIResponse.Data = null;
+                APIResponse.Error = ex.Message;
                 return StatusCode(500, APIResponse);
             }
         }
@@ -69,8 +60,8 @@ namespace MarketBackend.Controllers
         {
             try
             {
-                var user = await context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
-                if (user == null || !authService.VerifyPassword(request.Password, user.PasswordHash))
+                var user = await authService.LoginAsync(request);
+                if (user == null)
                 {
                     APIResponse.Status = false;
                     APIResponse.StatusCode = HttpStatusCode.Unauthorized;
@@ -80,17 +71,27 @@ namespace MarketBackend.Controllers
                 }
                 // Генерация JWT токена
                 var token = authService.GenerateToken(user);
+
                 APIResponse.Status = true;
                 APIResponse.StatusCode = HttpStatusCode.OK;
-                APIResponse.Data = new { Token = token };
-                APIResponse.Error = null;
+
+                APIResponse.Data = new AuthViewDto
+                {
+                    Token = token,
+                    Email = user.Email,
+                    Role = user.Role,
+                };
+
+                APIResponse.Error = string.Empty;
+                
                 return Ok(APIResponse);
             }
             catch (Exception ex)
             {
                 APIResponse.Status = false;
                 APIResponse.StatusCode = HttpStatusCode.InternalServerError;
-                APIResponse.Error = ex.Data;
+                APIResponse.Data = null;
+                APIResponse.Error = ex.Message;
                 return StatusCode(500, APIResponse);
             }
         }

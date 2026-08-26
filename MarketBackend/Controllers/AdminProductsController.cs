@@ -1,20 +1,21 @@
-﻿using System;
-using System.Net;
-using System.Threading.Tasks;
-using MarketBackend.Data;
+﻿using MarketBackend.Data;
 using MarketBackend.DTOs;
 using MarketBackend.DTOs.Request;
 using MarketBackend.Models;
+using MarketBackend.Services.Auth;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System;
+using System.Net;
+using System.Threading.Tasks;
 
 namespace MarketBackend.Controllers
 {
     [ApiController]
     [Route("api/admin/products")]
     [Authorize(Roles ="admin")]
-    public class AdminProductsController (ApplicationDbContext context, APIResponse APIResponse) : ControllerBase
+    public class AdminProductsController (IProductService productService, APIResponse APIResponse) : ControllerBase
     {
         //добавление нового продукта
         [HttpPost]
@@ -22,19 +23,13 @@ namespace MarketBackend.Controllers
         {
             try
             {
-                var newProduct = new Product
-                {
-                    Name = request.Name,
-                    Description = request.Description,
-                    Price = request.Price,
-                    ImageUrl = request.ImageUrl
-                };
-                context.Products.Add(newProduct);
-                await context.SaveChangesAsync();
+                await productService.CreateAsync(request);
+
+
                 APIResponse.Status = true;
                 APIResponse.StatusCode = HttpStatusCode.OK;
                 APIResponse.Data = "Product added successfully.";
-                APIResponse.Error = null;
+                APIResponse.Error = string.Empty;
                 return Ok(APIResponse);
             }
             catch (Exception ex)
@@ -46,14 +41,15 @@ namespace MarketBackend.Controllers
                 return StatusCode((int)HttpStatusCode.InternalServerError, APIResponse);
             }
         }
+
         //редактирование продукта
         [HttpPut("{id}")]
         public async Task<ActionResult<APIResponse>> UpdateProduct(int id, [FromBody] ProductUpdateDto request)
         {
             try
             {
-                var product = await context.Products.FindAsync(id);
-                if (product == null)
+                bool isFound = await productService.UpdateAsync(id, request);
+                if (!isFound)
                 {
                     APIResponse.Status = false;
                     APIResponse.StatusCode = HttpStatusCode.NotFound;
@@ -61,17 +57,12 @@ namespace MarketBackend.Controllers
                     APIResponse.Error = "Product not found.";
                     return NotFound(APIResponse);
                 }
-                //если продукт найден, обновляем его свойства
-                product.Name = request.Name;
-                product.Description = request.Description;
-                product.Price = request.Price;
-                product.ImageUrl = request.ImageUrl;
-                await context.SaveChangesAsync();
+                
                 
                 APIResponse.Status = true;
                 APIResponse.StatusCode = HttpStatusCode.OK;
                 APIResponse.Data = "Product updated successfully.";
-                APIResponse.Error = null;
+                APIResponse.Error = string.Empty;
                 return Ok(APIResponse);
             }
             catch (Exception ex)
@@ -89,8 +80,8 @@ namespace MarketBackend.Controllers
         {
             try
             {
-                var product = await context.Products.FindAsync(id);
-                if (product == null)
+                bool isFound = await productService.DeleteAsync(id);
+                if (!isFound)
                 {
                     APIResponse.Status = false;
                     APIResponse.StatusCode = HttpStatusCode.NotFound;
@@ -98,13 +89,11 @@ namespace MarketBackend.Controllers
                     APIResponse.Error = "Product not found.";
                     return NotFound(APIResponse);
                 }
-                context.Products.Remove(product);
-                await context.SaveChangesAsync();
 
                 APIResponse.Status = true;
                 APIResponse.StatusCode = HttpStatusCode.OK;
                 APIResponse.Data = "Product deleted successfully.";
-                APIResponse.Error = null;
+                APIResponse.Error = string.Empty;
                 return Ok(APIResponse);
             }
             catch (Exception ex)
