@@ -17,12 +17,17 @@ namespace MarketBackend.Controllers
     [ApiController]
     [Route("api/cart")]
     [Authorize]
-    public class CartController(ICartService cartService, APIResponse APIResponse) : ControllerBase
+    public class CartController(ICartService cartService,ApplicationDbContext context, APIResponse APIResponse) : ControllerBase
     {
         private int GetUserId()
         {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-            return userIdClaim !=null? int.Parse(userIdClaim.Value):0;
+            var userEmail = User.Identity?.Name??
+                User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
+            if (string.IsNullOrEmpty(userEmail)) return 0;
+
+            var user = context.Users.FirstOrDefault(u => u.Email == userEmail);
+            return user != null ? user.Id : 0;
+        
         }
         //добавление товаров в корзину
         [HttpPost("add")]
@@ -31,8 +36,15 @@ namespace MarketBackend.Controllers
             try
             {
                 int userId = GetUserId();
-                
-                await cartService.AddToCartAsync(userId, request);
+                if (userId == 0)
+                {
+                    APIResponse.Status = false;
+                    APIResponse.StatusCode = HttpStatusCode.Unauthorized;
+                    APIResponse.Data = null;
+                    APIResponse.Error = "User not found or unauthorized.";
+                    return Unauthorized(APIResponse);
+                }
+                    await cartService.AddToCartAsync(userId, request);
 
                 APIResponse.Status = true;
                 APIResponse.StatusCode = HttpStatusCode.OK;
@@ -56,6 +68,14 @@ namespace MarketBackend.Controllers
             try
             {
                 int userId = GetUserId();
+                if (userId == 0)
+                {
+                    APIResponse.Status = false;
+                    APIResponse.StatusCode = HttpStatusCode.Unauthorized;
+                    APIResponse.Data = null;
+                    APIResponse.Error = "User not found or unauthorized.";
+                    return Unauthorized(APIResponse);
+                }
 
                 bool isRemoved = await cartService.RemoveFromCartAsync(userId, productId);
                 if (!isRemoved)
@@ -67,6 +87,7 @@ namespace MarketBackend.Controllers
                     return NotFound(APIResponse);
                     
                 }
+
                 APIResponse.Status = true;
                 APIResponse.StatusCode = HttpStatusCode.OK;
                 APIResponse.Data = "Product removed from cart successfully.";
@@ -82,7 +103,38 @@ namespace MarketBackend.Controllers
                 APIResponse.Error = ex.Message;
                 return StatusCode(500, APIResponse);
             }
-        } 
+        }
+        [HttpGet]
+        public async Task<ActionResult<APIResponse>> GetCart()
+        {
+            try
+            {
+                int userId = GetUserId();
+                if (userId == 0)
+                {
+                    APIResponse.Status = false;
+                    APIResponse.StatusCode = HttpStatusCode.NotFound;
+                    APIResponse.Data = null;
+                    APIResponse.Error = "User not found or unauthorized";
+                    return Unauthorized(APIResponse);
+                }
+                var cartData = await cartService.GetCartAsync(userId);
+
+                APIResponse.Status = true;
+                APIResponse.StatusCode = HttpStatusCode.OK;
+                APIResponse.Data = cartData;
+                APIResponse.Error = string.Empty;
+                return Ok(APIResponse);
+            }
+            catch(Exception ex)
+            {
+                APIResponse.Status = false;
+                APIResponse.StatusCode = HttpStatusCode.InternalServerError;
+                APIResponse.Data = null;
+                APIResponse.Error = ex.Message;
+                return StatusCode(500, APIResponse);
+            }
+        }
         //оформление заказа 
         [HttpPost("checkout")]
         public async Task<ActionResult<APIResponse>> Checkout()
