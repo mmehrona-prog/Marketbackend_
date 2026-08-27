@@ -19,6 +19,7 @@ namespace MarketBackend.Controllers
     [Authorize]
     public class CartController(ICartService cartService,ApplicationDbContext context, APIResponse APIResponse) : ControllerBase
     {
+        //извлечение email пользователя из токена и находидт его Id в базе данных
         private int GetUserId()
         {
             var userEmail = User.Identity?.Name??
@@ -29,6 +30,7 @@ namespace MarketBackend.Controllers
             return user != null ? user.Id : 0;
         
         }
+
         //добавление товаров в корзину
         [HttpPost("add")]
         public async Task<ActionResult<APIResponse>> AddToCart([FromBody] AddToCartDto request)
@@ -61,6 +63,7 @@ namespace MarketBackend.Controllers
                 return StatusCode(500, APIResponse);
             }
         }
+
         //удаление заказа из корзины
         [HttpDelete("remove/{productId}")]
         public async Task<ActionResult<APIResponse>> RemoveFromCart(int productId)
@@ -104,6 +107,8 @@ namespace MarketBackend.Controllers
                 return StatusCode(500, APIResponse);
             }
         }
+
+        //вывод содержимого корзины
         [HttpGet]
         public async Task<ActionResult<APIResponse>> GetCart()
         {
@@ -135,6 +140,7 @@ namespace MarketBackend.Controllers
                 return StatusCode(500, APIResponse);
             }
         }
+
         //оформление заказа 
         [HttpPost("checkout")]
         public async Task<ActionResult<APIResponse>> Checkout()
