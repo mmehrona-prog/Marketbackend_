@@ -1,5 +1,6 @@
 using MarketBackend.Data;
 using MarketBackend.DTOs;
+using MarketBackend.Mapping;
 using MarketBackend.Services.Auth;
 using MarketBackend.Services.Implementations.Auth;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -7,13 +8,13 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using MarketBackend.Mapping;
 var builder = WebApplication.CreateBuilder(args);
 
 //регистраци сервисов
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<ICartService, CartService>();
-builder.Services.AddTransient<APIResponse>();
 
 builder.Services.AddControllers();
 
@@ -69,6 +70,8 @@ builder.Services.AddAuthentication(options =>
         ClockSkew= TimeSpan.Zero
     };
 });
+builder.Services.AddAutoMapper(typeof(MappingProfile));
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

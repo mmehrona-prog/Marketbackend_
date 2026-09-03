@@ -17,162 +17,124 @@ namespace MarketBackend.Controllers
     [ApiController]
     [Route("api/cart")]
     [Authorize]
-    public class CartController(ICartService cartService,ApplicationDbContext context, APIResponse APIResponse) : ControllerBase
+    public class CartController(ICartService cartService) : ControllerBase
     {
-        //извлечение email пользователя из токена и находидт его Id в базе данных
+        //id берется из claims токена, который был установлен при аутентификации пользователя
         private int GetUserId()
         {
-            var userEmail = User.Identity?.Name??
-                User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
-            if (string.IsNullOrEmpty(userEmail)) return 0;
-
-            var user = context.Users.FirstOrDefault(u => u.Email == userEmail);
-            return user != null ? user.Id : 0;
-        
+            var userIdClaim= User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
+            {
+                return 0;
+            }
+            return userId;
         }
 
         //добавление товаров в корзину
         [HttpPost("add")]
-        public async Task<ActionResult<APIResponse>> AddToCart([FromBody] AddToCartDto request)
+        public async Task<ActionResult> AddToCart([FromBody] AddToCartDto request)
         {
             try
             {
                 int userId = GetUserId();
                 if (userId == 0)
                 {
-                    APIResponse.Status = false;
-                    APIResponse.StatusCode = HttpStatusCode.Unauthorized;
-                    APIResponse.Data = null;
-                    APIResponse.Error = "User not found or unauthorized.";
-                    return Unauthorized(APIResponse);
+                    var failResponse = APIResponse<string>.Fail("User unauthorized", HttpStatusCode.Unauthorized);
+                    return Unauthorized(failResponse);
                 }
-                    await cartService.AddToCartAsync(userId, request);
+                await cartService.AddToCartAsync(userId, request);
 
-                APIResponse.Status = true;
-                APIResponse.StatusCode = HttpStatusCode.OK;
-                APIResponse.Data = "Product added to cart successfully.";
-                APIResponse.Error = string.Empty;
-                return Ok(APIResponse);
+                var response = APIResponse<string>.Ok("Product added to cart successfully", HttpStatusCode.OK);
+                return Ok(response);
             }
             catch (Exception ex)
             {
-                APIResponse.Status = false;
-                APIResponse.StatusCode = HttpStatusCode.InternalServerError;
-                APIResponse.Data = null;
-                APIResponse.Error = ex.Message;
-                return StatusCode(500, APIResponse);
+                var respsponse= APIResponse<object>.Fail(ex.Message, HttpStatusCode.InternalServerError);
+                return StatusCode(500, respsponse);
             }
         }
 
         //удаление заказа из корзины
         [HttpDelete("remove/{productId}")]
-        public async Task<ActionResult<APIResponse>> RemoveFromCart(int productId)
+        public async Task<ActionResult> RemoveFromCart(int productId)
         {
             try
             {
                 int userId = GetUserId();
                 if (userId == 0)
                 {
-                    APIResponse.Status = false;
-                    APIResponse.StatusCode = HttpStatusCode.Unauthorized;
-                    APIResponse.Data = null;
-                    APIResponse.Error = "User not found or unauthorized.";
-                    return Unauthorized(APIResponse);
+                    var  failResponse = APIResponse<object>.Fail("User unauthorized", HttpStatusCode.Unauthorized);
+                    return Unauthorized(failResponse);
                 }
 
                 bool isRemoved = await cartService.RemoveFromCartAsync(userId, productId);
                 if (!isRemoved)
                 {
-                    APIResponse.Status = false;
-                    APIResponse.StatusCode = HttpStatusCode.NotFound;
-                    APIResponse.Data = null;
-                    APIResponse.Error = "Product not found in cart.";
-                    return NotFound(APIResponse);
-                    
+                   var failResponse = APIResponse<object>.Fail("Product not found in cart", HttpStatusCode.NotFound);
+                    return NotFound(failResponse);
                 }
 
-                APIResponse.Status = true;
-                APIResponse.StatusCode = HttpStatusCode.OK;
-                APIResponse.Data = "Product removed from cart successfully.";
-                APIResponse.Error = string.Empty;
-
-                return Ok(APIResponse);
+                var response = APIResponse<string>.Ok("Product removed from cart successfully", HttpStatusCode.OK);
+                return Ok(response);
             }
             catch (Exception ex)
             {
-                APIResponse.Status = false;
-                APIResponse.StatusCode = HttpStatusCode.InternalServerError;
-                APIResponse.Data = null;
-                APIResponse.Error = ex.Message;
-                return StatusCode(500, APIResponse);
+                var response = APIResponse<object>.Fail(ex.Message, HttpStatusCode.InternalServerError);
+                return StatusCode(500, response);
             }
         }
 
         //вывод содержимого корзины
         [HttpGet]
-        public async Task<ActionResult<APIResponse>> GetCart()
+        public async Task<ActionResult> GetCart()
         {
             try
             {
                 int userId = GetUserId();
                 if (userId == 0)
                 {
-                    APIResponse.Status = false;
-                    APIResponse.StatusCode = HttpStatusCode.NotFound;
-                    APIResponse.Data = null;
-                    APIResponse.Error = "User not found or unauthorized";
-                    return Unauthorized(APIResponse);
+                    var failResponse = APIResponse<object>.Fail("User unauthorized", HttpStatusCode.Unauthorized);
+                    return Unauthorized(failResponse);
                 }
                 var cartData = await cartService.GetCartAsync(userId);
 
-                APIResponse.Status = true;
-                APIResponse.StatusCode = HttpStatusCode.OK;
-                APIResponse.Data = cartData;
-                APIResponse.Error = string.Empty;
-                return Ok(APIResponse);
+                var response= APIResponse<object>.Ok(cartData, HttpStatusCode.OK);
+                return Ok(response);
             }
             catch(Exception ex)
             {
-                APIResponse.Status = false;
-                APIResponse.StatusCode = HttpStatusCode.InternalServerError;
-                APIResponse.Data = null;
-                APIResponse.Error = ex.Message;
-                return StatusCode(500, APIResponse);
+                var response = APIResponse<object>.Fail(ex.Message, HttpStatusCode.InternalServerError);
+                return StatusCode(500, response);
             }
         }
 
         //оформление заказа 
         [HttpPost("checkout")]
-        public async Task<ActionResult<APIResponse>> Checkout()
+        public async Task<ActionResult> Checkout()
         {
             try
             {
                 int userId = GetUserId();
 
-                bool isSuccess = await cartService.CheckoutAsync(userId);
-                if (!isSuccess)
+                if (userId==0)
                 {
-                    APIResponse.Status = false;
-                    APIResponse.StatusCode = HttpStatusCode.BadRequest;
-                    APIResponse.Data = null;
-                    APIResponse.Error = "Cart is empty.";
-                    return BadRequest(APIResponse);
+                    var failResponse = APIResponse<object>.Fail("User unauthorized", HttpStatusCode.Unauthorized);
+                    return Unauthorized(failResponse);
                 }
-                APIResponse.Status = true;
-                APIResponse.StatusCode = HttpStatusCode.OK;
-                APIResponse.Data = "Checkout successful. Your cart has been cleared";
-                APIResponse.Error = string.Empty;
-
-                return Ok(APIResponse);
+                bool isSuccess= await cartService.CheckoutAsync(userId);
+                if (isSuccess)
+                {
+                    var failResponse= APIResponse<object>.Fail("Cart is empty", HttpStatusCode.BadRequest);
+                    return BadRequest(failResponse);
+                }
+                var response= APIResponse<string>.Ok("Checkout successful, your cart has been cleared", HttpStatusCode.OK);
+                return Ok(response);
             }
                     
             catch (Exception ex)
             {
-                APIResponse.Status = false;
-                APIResponse.StatusCode = HttpStatusCode.InternalServerError;
-                APIResponse.Data = null;
-                APIResponse.Error = ex.Message;
-                return StatusCode(500, APIResponse);
+                var response = APIResponse<object>.Fail(ex.Message, HttpStatusCode.InternalServerError);
+                return StatusCode(500, response);
             }
         }
     }

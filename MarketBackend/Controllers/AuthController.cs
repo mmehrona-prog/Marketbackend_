@@ -16,83 +16,52 @@ namespace MarketBackend.Controllers
 {
     [ApiController]
     [Route("api/auth")]
-    public class AuthController(IAuthService authService,
-            APIResponse APIResponse) : ControllerBase
+    public class AuthController(IAuthService authService) : ControllerBase
     {
         //регистрация
         [HttpPost("register")]
         [AllowAnonymous]
-        public async Task<ActionResult<APIResponse>> Register([FromBody] RegisterDto request)
+        public async Task<ActionResult> Register([FromBody] RegisterDto request)
         {
             try
             {
                 // Проверка, существует ли пользователь с таким email
-                bool isRegistered = await authService.RegisterAsync(request);
+                var authResult = await authService.RegisterAsync(request);
 
-                if (!isRegistered)
+                if (authResult==null)
                 {
-                    APIResponse.Status = false;
-                    APIResponse.StatusCode = HttpStatusCode.BadRequest;
-                    APIResponse.Data = null;
-                    APIResponse.Error = "User with this email already exists.";
-                    return BadRequest(APIResponse);
+                    var failResponse= APIResponse<string>.Fail("User with this email already exists.", HttpStatusCode.BadRequest);
+                    return BadRequest(failResponse);
                 }
 
-                APIResponse.Status = true;
-                APIResponse.StatusCode = HttpStatusCode.OK;
-                APIResponse.Data = "User registered successfully.";
-                APIResponse.Error = string.Empty;
-
-                return Ok(APIResponse);
+                var response = APIResponse<AuthViewDto>.Ok(authResult, HttpStatusCode.OK);
+                return Ok(response);
             }
             catch (Exception ex) {
-                APIResponse.Status = false;
-                APIResponse.StatusCode = HttpStatusCode.InternalServerError;
-                APIResponse.Data = null;
-                APIResponse.Error = ex.Message;
-                return StatusCode(500, APIResponse);
+                var response = APIResponse<object>.Fail(ex.Message, HttpStatusCode.InternalServerError);
+                return StatusCode(500, response);
             }
         }
         //для входа в систему
         [HttpPost("login")]
         [AllowAnonymous]
-        public async Task<ActionResult<APIResponse>> Login([FromBody] LoginDto request)
+        public async Task<ActionResult> Login([FromBody] LoginDto request)
         {
             try
             {
-                var user = await authService.LoginAsync(request);
-                if (user == null)
+                var authResult = await authService.LoginAsync(request);
+                if (authResult  == null)
                 {
-                    APIResponse.Status = false;
-                    APIResponse.StatusCode = HttpStatusCode.Unauthorized;
-                    APIResponse.Data = null;
-                    APIResponse.Error = "Invalid email or password.";
-                    return Unauthorized(APIResponse);
+                    var failResponse = APIResponse<object>.Fail("Invalid email or password.", HttpStatusCode.Unauthorized);
+                    return Unauthorized(failResponse);
                 }
-                // Генерация JWT токена
-                var token = authService.GenerateToken(user);
-
-                APIResponse.Status = true;
-                APIResponse.StatusCode = HttpStatusCode.OK;
-
-                APIResponse.Data = new AuthViewDto
-                {
-                    Token = token,
-                    Email = user.Email,
-                    Role = user.Role,
-                };
-
-                APIResponse.Error = string.Empty;
-                
-                return Ok(APIResponse);
+               var response = APIResponse<AuthViewDto>.Ok(authResult, HttpStatusCode.OK);
+               return Ok(response);
             }
             catch (Exception ex)
             {
-                APIResponse.Status = false;
-                APIResponse.StatusCode = HttpStatusCode.InternalServerError;
-                APIResponse.Data = null;
-                APIResponse.Error = ex.Message;
-                return StatusCode(500, APIResponse);
+                var response = APIResponse<object>.Fail(ex.Message, HttpStatusCode.InternalServerError);
+                return StatusCode(500, response);
             }
         }
     }

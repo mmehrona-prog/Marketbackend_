@@ -14,39 +14,30 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
 
 
-namespace MarketBackend.Controllers
+namespace MarketBackend.CartControllers
 {
     [Route("api/products")]
     [ApiController]
-    public class ProductsController(IProductService productService, APIResponse APIResponse) : ControllerBase
+    public class ProductsController(IProductService productService) : ControllerBase
     {
         //просмотр всех продуктов с фильтрации по имени и цене
         [HttpGet]
         [AllowAnonymous]
-        public async Task<ActionResult<APIResponse>> GetAll(
-            [FromQuery] string? name,
-            [FromQuery] decimal? minPrice,
-            [FromQuery] decimal? maxPrice)
+        public async Task<ActionResult> GetAll([FromQuery] ProductQueryDto query)
         {
             try
             {
-                var result = await productService.GetAllAsync(name, minPrice, maxPrice);
+                var result = await productService.GetAllProductsAsync(query);
 
-                APIResponse.Status = true;
-                APIResponse.StatusCode = HttpStatusCode.OK;
-                APIResponse.Data = result;
-                APIResponse.Error = string.Empty;
+               var response= APIResponse<object>.Ok(result, HttpStatusCode.OK);
 
-                return Ok(APIResponse);
+                return Ok(response);
             }
 
             catch (Exception ex)
             {
-                APIResponse.Status = false;
-                APIResponse.StatusCode = HttpStatusCode.InternalServerError;
-                APIResponse.Data = null;
-                APIResponse.Error = ex.Message;
-                return StatusCode(500, APIResponse);
+                var response = APIResponse<object>.Fail(ex.Message, HttpStatusCode.InternalServerError);
+                return StatusCode(500, response);
             }
         }
         

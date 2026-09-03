@@ -1,5 +1,7 @@
 ﻿using MarketBackend.DTOs.Request;
+using MarketBackend.DTOs.Response;
 using MarketBackend.Models;
+using System.Threading.Tasks;
 
 namespace MarketBackend.Services.Auth
 {
@@ -9,7 +11,7 @@ namespace MarketBackend.Services.Auth
         bool VerifyPassword(string password, string hashedPassword);
         string GenerateToken(User user);
 
-        Task<bool> RegisterAsync(RegisterDto dto);
-        Task<User> LoginAsync(LoginDto dto);
+        Task<AuthViewDto> RegisterAsync(RegisterDto dto);
+        Task<AuthViewDto> LoginAsync(LoginDto dto);
     }
 }

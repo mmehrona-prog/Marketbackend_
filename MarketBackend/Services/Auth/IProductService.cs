@@ -7,10 +7,10 @@ namespace MarketBackend.Services.Auth
 {
     public interface IProductService
     {
-        Task<List<ProductViewDto>> GetAllAsync(string? name, decimal? minPrice, decimal? maxPrice);
+        Task<IEnumerable<ProductViewDto>> GetAllProductsAsync(ProductQueryDto query);
 
-        Task CreateAsync(ProductCreateDto dto);
-        Task<bool> UpdateAsync(int id, ProductUpdateDto dto);
+        Task <ProductViewDto> CreateProductAsync (ProductCreateDto createDto);
+        Task<ProductViewDto> UpdateProductAsync(int id, ProductUpdateDto updateDto);
         Task<bool> DeleteAsync(int id);
     }
 }

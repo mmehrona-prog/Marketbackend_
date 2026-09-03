@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using AutoMapper;
+using AutoMapper.QueryableExtensions;
 using MarketBackend.Data;
 using MarketBackend.DTOs.Request;
 using MarketBackend.DTOs.Response;
@@ -11,56 +13,61 @@ using Microsoft.EntityFrameworkCore;
 
 namespace MarketBackend.Services.Implementations.Auth
 {
-    public class ProductService(ApplicationDbContext context) : IProductService
+    public class ProductService(ApplicationDbContext context, IMapper mapper) : IProductService
     {
         //просмотр 
-        public async Task<List<ProductViewDto>> GetAllAsync(string? name, decimal? minPrice, decimal? maxPrice)
+        public async Task<IEnumerable<ProductViewDto>> GetAllProductsAsync(ProductQueryDto query)
         {
-            var products = await context.Products.AsQueryable()
-                .WhereIf(!string.IsNullOrEmpty(name), p => p.Name.ToLower().Contains(name!.ToLower()))
-                .WhereIf(minPrice.HasValue, p => p.Price >= minPrice.Value)
-                .WhereIf(maxPrice.HasValue, p => p.Price <= maxPrice.Value)
-                .ToListAsync();
-            return products.Select(p => new ProductViewDto
+            var dbQuery = context.Products.AsQueryable();
+            //фильтрация по имени и цене
+            if (!string.IsNullOrEmpty(query.Name))
             {
-                Id = p.Id,
-                Name = p.Name,
-                Description = p.Description,
-                Price = (decimal)(p.Price),
-                ImageUrl = p.ImageUrl
-            }).ToList();
+                dbQuery = dbQuery.Where(p => p.Name.Contains(query.Name));
+            }
+
+            if(query.MinPrice.HasValue)
+            {
+                dbQuery = dbQuery.Where(p => p.Price >= query.MinPrice.Value);
+            }
+
+            if (query.MaxPrice.HasValue)
+            {
+                dbQuery = dbQuery.Where(p => p.Price <= query.MaxPrice.Value);
+            }
+
+            //пагинация
+            var skipAmount = (query.PageNumber - 1) * query.PageSize;
+
+            var products = await dbQuery
+                .Skip(skipAmount)
+                .Take(query.PageSize)
+                .ToListAsync();
+            return mapper.Map<IEnumerable<ProductViewDto>>(products);
         }
         //создание товара админом
-        public async Task CreateAsync(ProductCreateDto dto)
+        public async Task<ProductViewDto> CreateProductAsync(ProductCreateDto dto)
         {
-            var newProduct = new Product
-            {
-                Name = dto.Name,
-                Description = dto.Description,
-                Price = dto.Price,
-                ImageUrl = dto.ImageUrl,
-                CreatedAt = DateTime.UtcNow
-            };
+            var newProduct = mapper.Map<Product>(dto);
+            newProduct.CreatedAt=DateTime.UtcNow;
+
             context.Products.Add(newProduct);
             await context.SaveChangesAsync();
+
+            return mapper.Map<ProductViewDto>(newProduct);
         }
         //редактирование товара админом
-        public async Task<bool> UpdateAsync(int id, ProductUpdateDto dto)
+        public async Task<ProductViewDto> UpdateProductAsync(int id, ProductUpdateDto dto)
         {
             var product = await context.Products.FindAsync(id);
             //если товар не найден в бд и выводим false
             if (product == null)
             {
-                return false;
+                return null;
             }
             //если найден перезаписваем его свойства
-                product.Name = dto.Name;
-                product.Description = dto.Description;
-                product.Price = dto.Price;
-                product.ImageUrl = dto.ImageUrl;
-            
+                mapper.Map(dto,product);
             await context.SaveChangesAsync();
-            return true;
+            return mapper.Map<ProductViewDto>(product);
         }
         //удаление товара админом
         public async Task<bool> DeleteAsync(int id)

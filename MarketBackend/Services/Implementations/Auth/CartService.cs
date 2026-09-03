@@ -1,16 +1,19 @@
-﻿using MarketBackend.Data;
+﻿using AutoMapper;
+using AutoMapper.QueryableExtensions;
+using MarketBackend.Data;
 using MarketBackend.DTOs.Request;
 using MarketBackend.DTOs.Response;
 using MarketBackend.Models;
 using MarketBackend.Services.Auth;
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
 
 namespace MarketBackend.Services.Implementations.Auth
 {
-    public class CartService(ApplicationDbContext context) : ICartService
+    public class CartService(ApplicationDbContext context, IMapper mapper) : ICartService
     {
         //добавления товара в корзину
         public async Task AddToCartAsync(int userId, AddToCartDto dto)
@@ -23,12 +26,8 @@ namespace MarketBackend.Services.Implementations.Auth
             }
             else
             {
-                var newItem = new CartItem
-                {
-                    UserId = userId,
-                    ProductId = dto.ProductId,
-                    Quantity = dto.Quantity,
-                };
+                var newItem = mapper.Map<CartItem>(dto);
+                newItem.UserId = userId;
                 context.CartItems.Add(newItem);
             }
             await context.SaveChangesAsync();
@@ -88,20 +87,10 @@ namespace MarketBackend.Services.Implementations.Auth
         }
         public async Task<List<CartItemViewDto>> GetCartAsync(int userId)
         {
-            var cartItems = await context.CartItems
-                .Include(c => c.Product) // Подгружаем связанные данные о товаре из таблицы Products
-                .Where(c => c.UserId == userId)
-                .ToListAsync();
-
-            return cartItems.Select(item => new CartItemViewDto
-            {
-                ProductId = item.ProductId,
-                ProductName = item.Product != null ? item.Product.Name : "Unknown",
-                Price = item.Product != null ? item.Product.Price : 0,
-                Quantity = item.Quantity,
-                TotalItemPrice = item.Product != null ? item.Product.Price * item.Quantity : 0,
-                ImageUrl = item.Product != null ? item.Product.ImageUrl : string.Empty
-            }).ToList();
+            return await context.CartItems
+                 .Where(c => c.UserId == userId)
+                 .ProjectTo<CartItemViewDto>(mapper.ConfigurationProvider)
+                 .ToListAsync();
         }
     }
 
