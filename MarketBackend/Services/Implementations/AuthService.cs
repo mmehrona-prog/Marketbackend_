@@ -15,7 +15,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 
 
-namespace MarketBackend.Services.Implementations.Auth
+namespace MarketBackend.Services.Implementations
 {
     public class AuthService(IConfiguration configuration, ApplicationDbContext context, IMapper mapper) : IAuthService
     {

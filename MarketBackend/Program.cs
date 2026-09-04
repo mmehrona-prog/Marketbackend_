@@ -2,13 +2,13 @@ using MarketBackend.Data;
 using MarketBackend.DTOs;
 using MarketBackend.Mapping;
 using MarketBackend.Services.Auth;
-using MarketBackend.Services.Implementations.Auth;
+using MarketBackend.Services.Implementations;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
-using MarketBackend.Mapping;
+
 var builder = WebApplication.CreateBuilder(args);
 
 //регистраци сервисов

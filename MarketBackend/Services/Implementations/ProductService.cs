@@ -7,11 +7,12 @@ using AutoMapper.QueryableExtensions;
 using MarketBackend.Data;
 using MarketBackend.DTOs.Request;
 using MarketBackend.DTOs.Response;
+using MarketBackend.Extensions;
 using MarketBackend.Models;
 using MarketBackend.Services.Auth;
 using Microsoft.EntityFrameworkCore;
 
-namespace MarketBackend.Services.Implementations.Auth
+namespace MarketBackend.Services.Implementations
 {
     public class ProductService(ApplicationDbContext context, IMapper mapper) : IProductService
     {
@@ -36,12 +37,8 @@ namespace MarketBackend.Services.Implementations.Auth
             }
 
             //пагинация
-            var skipAmount = (query.PageNumber - 1) * query.PageSize;
-
             var products = await dbQuery
-                .Skip(skipAmount)
-                .Take(query.PageSize)
-                .ToListAsync();
+                .Paginate(query.PageNumber, query.PageSize).ToListAsync();
             return mapper.Map<IEnumerable<ProductViewDto>>(products);
         }
         //создание товара админом

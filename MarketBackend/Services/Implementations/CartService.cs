@@ -11,7 +11,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace MarketBackend.Services.Implementations.Auth
+namespace MarketBackend.Services.Implementations
 {
     public class CartService(ApplicationDbContext context, IMapper mapper) : ICartService
     {
